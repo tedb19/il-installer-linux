@@ -3,67 +3,75 @@ clear
 INSTALLATION_DIRECTORY="/opt/Interop-Layer"
 PLATFORM="linux"
 DATABASE_PROP="interopdb"
-PM2="node_modules/pm2/bin/pm2"
+PM2="$INSTALLATION_DIRECTORY/dist/node_modules/pm2/bin/pm2"
+INTEROP="$INSTALLATION_DIRECTORY/dist/src/server/index.js"
+SLEEPVALUE=1
+
+cat ./logo
 
 echo "==============: Installing nodejs..."
-sudo tar -xf prerequisites/node-v8.11.2-linux-x64.tar.xz --directory /usr/local --strip-components 1
+tar -xf prerequisites/node-v8.11.2-linux-x64.tar.xz --directory /usr/local --strip-components 1
 
 echo "==============: Extracting installation files to '$INSTALLATION_DIRECTORY/' ..."
-sudo mkdir "$INSTALLATION_DIRECTORY" -v
-sudo tar -xvf dist.tar.gz -C "$INSTALLATION_DIRECTORY"
+mkdir "$INSTALLATION_DIRECTORY"
+tar -xf dist.tar.gz -C "$INSTALLATION_DIRECTORY"
 
-sudo chown -R $USER:$USER "$INSTALLATION_DIRECTORY"
+echo "==============: Setting up PM2"
+tar -xf prerequisites/pm2.tar.gz -C /usr/local/lib/node_modules/
+
+ln -s /usr/local/lib/node_modules/pm2/bin/pm2-dev /usr/local/bin/pm2-dev
+ln -s /usr/local/lib/node_modules/pm2/bin/pm2 /usr/local/bin/pm2
+ln -s /usr/local/lib/node_modules/pm2/bin/pm2-docker /usr/local/bin/pm2-docker
+ln -s /usr/local/lib/node_modules/pm2/bin/pm2-runtime /usr/local/bin/pm2-runtime
 
 echo "==============: Please enter the database credentials:"
 
 while true; do
   read -p "Database username: "  USERNAME_PROP
-  read -ps "Database password: "  PASSWORD_PROP
+  read -p "Database password: "  PASSWORD_PROP
 
-  RESULT=`mysqlshow 2>&1 --user=$USERNAME_PROP --password=$PASSWORD_PROP mysql | grep -v Wildcard | grep -o mysql`
+  RESULT=`mysqlshow 2>&1 --user=$USERNAME_PROP --password=$PASSWORD_PROP mysql | grep -v Wildcard | grep -o proc | tail -1`
 
-  if [ "$RESULT" == "mysql mysql" ]; then
+  if [ "$RESULT" == "proc" ]; then
       echo "==============: Database credentials are correct!"
-      sudo echo "USERNAME_PROP=$USERNAME_PROP" >> /etc/environment
-      sudo echo "PASSWORD_PROP=$PASSWORD_PROP" >> /etc/environment
+      echo "USERNAME_PROP=$USERNAME_PROP" >> /etc/environment
+      echo "PASSWORD_PROP=$PASSWORD_PROP" >> /etc/environment
       break
   else
     echo "==============: The database credentials are incorrect! Please try again:"
   fi
 done
 
-sudo echo "DATABASE_PROP=$DATABASE_PROP" >> /etc/environment
-sudo echo "PLATFORM=$PLATFORM" >> /etc/environment
+echo "DATABASE_PROP=$DATABASE_PROP" >> /etc/environment
+echo "PLATFORM=$PLATFORM" >> /etc/environment
+echo "PM2=$PM2" >> /etc/environment
 
 source /etc/environment
 
-mysql -u${USERNAME_PROP} -p${PASSWORD_PROP} -e "CREATE DATABASE ${DATABASE_PROP} /*\!40100 DEFAULT CHARACTER SET utf8 */;"
+mysql -u${USERNAME_PROP} -p${PASSWORD_PROP} -e "CREATE DATABASE ${DATABASE_PROP} /*\!40100 DEFAULT CHARACTER SET utf8 */;" >> /dev/null
+
+source /etc/environment
+
+chown -R $SUDO_USER:$SUDO_USER "$INSTALLATION_DIRECTORY"
 
 echo "==============: Starting IL through PM2 Process Manager"
-cd "$INSTALLATION_DIRECTORY/dist"
-$PM2 start src/server/index.js --name "Interoperability Layer"
+USERNAME_PROP=$USERNAME_PROP PASSWORD_PROP=$PASSWORD_PROP PLATFORM=$PLATFORM DATABASE_PROP=$DATABASE_PROP pm2 start $INTEROP --name "Interoperability Layer" --user $SUDO_USER
 
-echo "==============: Make PM2 auto-start on system restarts"
-$PM2 startup | tail -1 | sudo -E bash -
+# echo "==============: Make PM2 auto-start on system restarts"
+# env PATH=$PATH:/usr/local/bin $PM2 startup systemd -u $USER --hp /home/$USER
+# $PM2 save
+# chown -R $USER:$USER /home/${USER}/.pm2 /home/${USER}/.pm2/rpc.sock /home/${USER}/.pm2/pub.sock
 
-$PM2 save
+# echo "==============: Make PM2 auto-start on system restarts"
+pm2 startup | tail -1 | sudo -E bash -
+
+pm2 save
+
+# chown -R $SUDO_USER:$SUDO_USER /home/${SUDO_USER}/.pm2 /home/${SUDO_USER}/.pm2/rpc.sock /home/${SUDO_USER}/.pm2/pub.sock
 
 clear
 
-echo "
-
-
-  _____           _                                                         _       _   _   _   _               _                                    
- |_   _|         | |                                                       | |     (_) | | (_) | |             | |                                   
-   | |    _ __   | |_    ___   _ __    ___    _ __     ___   _ __    __ _  | |__    _  | |  _  | |_   _   _    | |        __ _   _   _    ___   _ __ 
-   | |   | '_ \  | __|  / _ \ | '__|  / _ \  | '_ \   / _ \ | '__|  / _` | | '_ \  | | | | | | | __| | | | |   | |       / _` | | | | |  / _ \ | '__|
-  _| |_  | | | | | |_  |  __/ | |    | (_) | | |_) | |  __/ | |    | (_| | | |_) | | | | | | | | |_  | |_| |   | |____  | (_| | | |_| | |  __/ | |   
- |_____| |_| |_|  \__|  \___| |_|     \___/  | .__/   \___| |_|     \__,_| |_.__/  |_| |_| |_|  \__|  \__, |   |______|  \__,_|  \__, |  \___| |_|   
-                                             | |                                                       __/ |                      __/ |              
-                                             |_|                                                      |___/                      |___/               
-
-
-"
+cat ./logo
 
 echo 
 echo "==============: Interoperability Layer successfully installed!"
@@ -71,3 +79,16 @@ echo "==============: Browse to http://localhost:5000 to begin using the IL."
 echo "==============: Default username and password is admin admin"
 echo "==============: Update the facility name and the DHIS credentials under the settings page"
 echo "==============: Update the system addresses for each participating system"
+echo "==============: Welcome to the future of secure health data exchange!"
+
+
+echo
+while [ $SLEEPVALUE -lt 15 ]
+do
+  echo -ne "."
+  sleep 2s
+  SLEEPVALUE=$[$SLEEPVALUE+1]
+done
+echo
+
+clear
