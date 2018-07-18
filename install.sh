@@ -9,8 +9,15 @@ SLEEPVALUE=1
 
 cat ./logo
 
-echo "==============: Installing nodejs..."
-tar -xf prerequisites/node-v8.11.2-linux-x64.tar.xz --directory /usr/local --strip-components 1
+if [ `getconf LONG_BIT` = "64" ]
+then
+    echo "==============: Installing x64 nodejs..."
+    tar -xf prerequisites/node-v8.11.2-linux-x64.tar.xz --directory /usr/local --strip-components 1
+else
+    echo "==============: Installing x86 nodejs..."
+    tar -xf prerequisites/node-v8.11.3-linux-x86.tar.xz --directory /usr/local --strip-components 1
+fi
+
 
 echo "==============: Extracting installation files to '$INSTALLATION_DIRECTORY/' ..."
 mkdir "$INSTALLATION_DIRECTORY"
